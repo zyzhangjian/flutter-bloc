@@ -1,25 +1,62 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 
-// This method is called when your extension is activated
-// The extension is activated the first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   // Register a command: Flutter Bloc - New Bloc Template
   const disposable = vscode.commands.registerCommand(
-    "flutter-bloc.newBlocTemplate",
+    "flutter bloc.newBlocTemplate",
     async (uri: vscode.Uri) => {
-      // Ensure a valid folder path is selected
-      if (!uri || uri.scheme !== "file") {
+      if (!uri || !uri.fsPath) {
+        const folderUri = await vscode.window.showOpenDialog({
+          canSelectFolders: true,
+          canSelectFiles: false,
+          openLabel: "Select Folder",
+        });
+
+        if (!folderUri || folderUri.length === 0) {
+          vscode.window.showErrorMessage("No folder selected.");
+          return;
+        }
+
+        uri = folderUri[0];
+      }
+
+      // Check if URI is provided
+      if (!uri) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+          vscode.window.showErrorMessage(
+            "No folder selected and no workspace is open. Please open a workspace or select a folder."
+          );
+          return;
+        }
+
+        // Use the first workspace folder as the default path
+        uri = workspaceFolders[0].uri;
+      }
+
+      // Validate the URI
+      if (uri.scheme !== "file") {
         vscode.window.showErrorMessage(
-          "No folder selected. Please select a folder and try again."
+          "Selected resource is not a valid folder. Please try again."
         );
+        console.error("Invalid URI scheme:", uri.scheme);
         return;
       }
 
-      console.log("Selected folder URI:", uri); // Log the selected folder path for debugging
+      // Ensure the selected resource is a folder
+      const selectedPath = uri.fsPath;
+      if (
+        !fs.existsSync(selectedPath) ||
+        !fs.lstatSync(selectedPath).isDirectory()
+      ) {
+        vscode.window.showErrorMessage(
+          "Selected resource is not a valid folder. Please select a folder."
+        );
+        return;
+      }
 
       // Prompt the user to input a class name
       const className = await vscode.window.showInputBox({
@@ -70,22 +107,27 @@ function createDartClassFile(
   folderPath: string,
   createFolder: boolean
 ) {
-  // Format the class name to snake_case, e.g., CreateName -> create_name
+  // Format the class name to snake_case
   const formattedClassName = formatClassName(className);
 
-  // Convert the class name to PascalCase, e.g., create_name -> CreateName
+  // Convert the class name to PascalCase
   const upperClassName = className.replace(/(?:^|\_)([a-z])/g, (match) =>
     match.toUpperCase()
   );
 
-  console.log("className =", upperClassName); // Log the formatted class name for debugging
-
-  // Determine the folder path where files will be created
+  // Check if folderPath already contains formattedClassName to avoid duplicate concatenation
   const classFolderPath = createFolder
-    ? path.join(folderPath, formattedClassName) // Add a subfolder if needed
-    : folderPath; // Use the given folder path if no subfolder is needed
+    ? folderPath.endsWith(formattedClassName)
+      ? folderPath // If the path already contains the class name, use it directly
+      : path.join(folderPath, formattedClassName) // Otherwise, append the new path
+    : folderPath;
 
-  // Define the file paths for Bloc, Event, and State
+  // Check if the target folder already exists to avoid duplicate creation
+  if (!fs.existsSync(classFolderPath)) {
+    fs.mkdirSync(classFolderPath, { recursive: true });
+  }
+
+  // Define file paths
   const classFilePathBloc = path.join(
     classFolderPath,
     `${formattedClassName}_bloc.dart`
@@ -99,45 +141,37 @@ function createDartClassFile(
     `${formattedClassName}_state.dart`
   );
 
-  // Create the folder if needed
-  if (createFolder) {
-    fs.mkdirSync(classFolderPath, { recursive: true });
-  }
-
-  // Define the Bloc template code
+  // Define template content
   const blocTemplate = `import 'package:bloc/bloc.dart';
-  
+
 import '${formattedClassName.toLowerCase()}_event.dart';
 import '${formattedClassName.toLowerCase()}_state.dart';
-  
+
 class ${upperClassName}Bloc extends Bloc<${upperClassName}Event, ${upperClassName}State> {
   ${upperClassName}Bloc() : super(${upperClassName}State()) {
     on<InitEvent>(_init);
   }
-  
+
   void _init(InitEvent event, Emitter<${upperClassName}State> emit) async {
     emit(state.clone());
   }
 }`;
 
-  // Define the Event template code
   const eventTemplate = `abstract class ${upperClassName}Event {}
-  
+
 class InitEvent extends ${upperClassName}Event {}`;
 
-  // Define the State template code
   const stateTemplate = `class ${upperClassName}State {
   ${upperClassName}State clone() {
     return ${upperClassName}State();
   }
 }`;
 
-  // Create and write content to the files
+  // Write content to files
   fs.writeFileSync(classFilePathBloc, blocTemplate);
   fs.writeFileSync(classFilePathEvent, eventTemplate);
   fs.writeFileSync(classFilePathState, stateTemplate);
 
-  // Show a message indicating the operation was successful
   vscode.window.showInformationMessage(
     `Class ${upperClassName} created successfully in ${classFolderPath}.`
   );

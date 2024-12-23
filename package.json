@@ -1,8 +1,8 @@
 {
-  "name": "flutterBloc",
-  "displayName": "flutter-bloc",
+  "name": "flutterBlocTemplate",
+  "displayName": "flutter bloc template",
   "description": "A Visual Studio Code extension that helps Flutter developers quickly generate Dart classes and associated Bloc, Event, and State files with predefined templates, following Flutter’s BLoC pattern conventions.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "zhangjian",
   "icon": "assets/icon.jpg",
   "repository": {
@@ -17,13 +17,13 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:flutter-bloc.newBlocTemplate"
+    "onCommand:flutter bloc.newBlocTemplate"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "flutter-bloc.newBlocTemplate",
+        "command": "flutter bloc.newBlocTemplate",
         "title": "Flutter Bloc: New Bloc Template",
         "category": "Flutter Bloc"
       }
@@ -31,8 +31,8 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "flutter-bloc.newBlocTemplate",
-          "when": "explorerResourceIsFolder",
+          "command": "flutter bloc.newBlocTemplate",
+          "when": "resourceLangId == dart || explorerResourceIsFolder",
           "group": "navigation"
         }
       ]
