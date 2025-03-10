@@ -2,7 +2,7 @@
   "name": "flutterBlocTemplate",
   "displayName": "flutter bloc template",
   "description": "A Visual Studio Code extension that helps Flutter developers quickly generate Dart classes and associated Bloc, Event, and State files with predefined templates, following Flutter’s BLoC pattern conventions.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "zhangjian",
   "icon": "assets/icon.jpg",
   "repository": {

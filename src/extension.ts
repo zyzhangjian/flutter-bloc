@@ -2,8 +2,13 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 
+/**
+ * Activates the extension and registers the command for generating Flutter Bloc/Cubit templates.
+ * This is the main entry point of the extension.
+ */
 export function activate(context: vscode.ExtensionContext) {
-  // Register a command: Flutter Bloc - New Bloc Template
+    // Register the command that will be invoked when users select "Flutter Bloc: New Bloc Template"
+  // from the context menu or command palette
   const disposable = vscode.commands.registerCommand(
     "flutter bloc.newBlocTemplate",
     async (uri: vscode.Uri) => {
@@ -58,6 +63,15 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      // Ask the user to select a mode
+      const selectMode = await vscode.window.showQuickPick(["Cubit", "Bloc"], {
+        placeHolder: "Select Mode",
+      });
+
+      if (!selectMode) {
+        return;
+      }
+
       // Prompt the user to input a class name
       const className = await vscode.window.showInputBox({
         placeHolder: "Enter the class name", // Placeholder text
@@ -86,11 +100,19 @@ export function activate(context: vscode.ExtensionContext) {
           : uri.fsPath; // Use the current folder if "No" is selected
 
       // Create the Dart class files
-      createDartClassFile(
-        className,
-        targetFolderPath,
-        createNewFolder === "Yes" // Pass a flag indicating whether to create a new folder
-      );
+      if(selectMode === "Bloc"){
+        createBlocClassFile(
+          className,
+          targetFolderPath,
+          createNewFolder === "Yes" // Pass a flag indicating whether to create a new folder
+        );
+      }else{
+        createCubitClassFile(
+          className,
+          targetFolderPath,
+          createNewFolder === "Yes" // Pass a flag indicating whether to create a new folder
+        );
+      }
     }
   );
 
@@ -101,8 +123,14 @@ export function activate(context: vscode.ExtensionContext) {
 // This method is called when your extension is deactivated
 export function deactivate() {}
 
-// Function: Create Dart class files
-function createDartClassFile(
+/**
+ * Creates a new Bloc implementation with associated event and state files.
+ * This function generates three files:
+ * 1. bloc file - Contains the main Bloc class implementation
+ * 2. event file - Defines the events that the Bloc can handle
+ * 3. state file - Defines the state structure for the Bloc
+ */
+function createBlocClassFile(
   className: string,
   folderPath: string,
   createFolder: boolean
@@ -173,11 +201,84 @@ class InitEvent extends ${upperClassName}Event {}`;
   fs.writeFileSync(classFilePathState, stateTemplate);
 
   vscode.window.showInformationMessage(
-    `Class ${upperClassName} created successfully in ${classFolderPath}.`
+    `Bloc Class ${upperClassName} created successfully in ${classFolderPath}.`
   );
 }
 
-// Utility function: Format the class name to snake_case
+/**
+ * Creates a new Cubit implementation with associated state file.
+ * This function generates two files:
+ * 1. cubit file - Contains the main Cubit class implementation
+ * 2. state file - Defines the state structure for the Cubit
+ */
+function createCubitClassFile(
+  className: string,
+  folderPath: string,
+  createFolder: boolean
+) {
+  // Format the class name to snake_case
+  const formattedClassName = formatClassName(className);
+
+  // Convert the class name to PascalCase
+  const upperClassName = className.replace(/(?:^|\_)([a-z])/g, (match) =>
+    match.toUpperCase()
+  );
+
+  // Check if folderPath already contains formattedClassName to avoid duplicate concatenation
+  const classFolderPath = createFolder
+    ? folderPath.endsWith(formattedClassName)
+      ? folderPath // If the path already contains the class name, use it directly
+      : path.join(folderPath, formattedClassName) // Otherwise, append the new path
+    : folderPath;
+
+  // Check if the target folder already exists to avoid duplicate creation
+  if (!fs.existsSync(classFolderPath)) {
+    fs.mkdirSync(classFolderPath, { recursive: true });
+  }
+
+  // Define file paths
+  const classFilePathCubit = path.join(
+    classFolderPath,
+    `${formattedClassName}_cubit.dart`
+  );
+  const classFilePathState = path.join(
+    classFolderPath,
+    `${formattedClassName}_state.dart`
+  );
+
+  // Define template content
+  const blocTemplate = `import 'package:bloc/bloc.dart';
+
+import '${formattedClassName.toLowerCase()}_state.dart';
+
+class ${upperClassName}Cubit extends Cubit<${upperClassName}State> {
+  ${upperClassName}Cubit() : super(${upperClassName}State()) {
+
+  }
+}`;
+
+
+  const stateTemplate = `class ${upperClassName}State {
+  ${upperClassName}State clone() {
+    return ${upperClassName}State();
+  }
+}`;
+
+  // Write content to files
+  fs.writeFileSync(classFilePathCubit, blocTemplate);
+  fs.writeFileSync(classFilePathState, stateTemplate);
+
+  vscode.window.showInformationMessage(
+    `Cubit Class ${upperClassName} created successfully in ${classFolderPath}.`
+  );
+}
+
+/**
+ * Utility function to convert a class name from PascalCase/camelCase to snake_case.
+ * Example: "UserProfile" becomes "user_profile"
+ * @param className - The original class name in PascalCase or camelCase
+ * @returns The formatted class name in snake_case
+ */
 function formatClassName(className: string): string {
   // Use a regular expression to convert camelCase or PascalCase to snake_case
   return className.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
